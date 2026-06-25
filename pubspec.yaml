@@ -1,0 +1,22 @@
+name: prisvagt_danmark
+description: PrisVagt Danmark v4.0 - Android/PWA med brændstofpriser
+publish_to: 'none'
+version: 4.0.0+40
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  shared_preferences: ^2.3.2
+  image_picker: ^1.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
