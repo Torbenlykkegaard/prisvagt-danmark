@@ -1,13 +1,13 @@
+import 'package:geolocator/geolocator.dart';
+
 import '../models/fuel_station.dart';
 
-class FuelPriceService {
-  /// Demo-data til Android-test omkring Hjørring.
-  /// Koordinater bruges til at beregne reel afstand fra brugerens GPS-position.
-  static Future<List<FuelStation>> fetchNearbyStations({
-    FuelType type = FuelType.petrol95,
-  }) async {
-    await Future<void>.delayed(const Duration(milliseconds: 250));
+class OverpassService {
+  static Future<List<FuelStation>> fetchStations(Position position) async {
+    return _fallbackStations(position);
+  }
 
+  static List<FuelStation> _fallbackStations(Position position) {
     final now = DateTime.now();
 
     final stations = [
@@ -17,13 +17,13 @@ class FuelPriceService {
         brand: 'Uno-X',
         address: 'Frederikshavnsvej 65',
         city: 'Hjørring',
-        distanceKm: 0,
         latitude: 57.4567,
         longitude: 9.9827,
+        distanceKm: 0,
         petrol95: 14.49,
         diesel: 13.89,
         petrol100: 15.29,
-        updatedAt: now.subtract(const Duration(minutes: 10)),
+        updatedAt: now,
       ),
       FuelStation(
         id: 'ok-hjoerring',
@@ -31,13 +31,13 @@ class FuelPriceService {
         brand: 'OK',
         address: 'Åstrupvej 5',
         city: 'Hjørring',
-        distanceKm: 0,
         latitude: 57.4593,
         longitude: 9.9895,
+        distanceKm: 0,
         petrol95: 14.55,
         diesel: 13.95,
         petrol100: 15.35,
-        updatedAt: now.subtract(const Duration(minutes: 20)),
+        updatedAt: now,
       ),
       FuelStation(
         id: 'q8-hjoerring',
@@ -45,13 +45,13 @@ class FuelPriceService {
         brand: 'Q8',
         address: 'Sct. Cathrine Vej',
         city: 'Hjørring',
-        distanceKm: 0,
         latitude: 57.4538,
         longitude: 9.9778,
+        distanceKm: 0,
         petrol95: 14.69,
         diesel: 14.05,
         petrol100: 15.49,
-        updatedAt: now.subtract(const Duration(minutes: 30)),
+        updatedAt: now,
       ),
       FuelStation(
         id: 'shell-hjoerring',
@@ -59,13 +59,13 @@ class FuelPriceService {
         brand: 'Shell',
         address: 'Ringvejen',
         city: 'Hjørring',
-        distanceKm: 0,
         latitude: 57.4519,
         longitude: 9.9725,
+        distanceKm: 0,
         petrol95: 14.75,
         diesel: 14.12,
         petrol100: 15.59,
-        updatedAt: now.subtract(const Duration(minutes: 35)),
+        updatedAt: now,
       ),
       FuelStation(
         id: 'ingo-saeby',
@@ -73,13 +73,13 @@ class FuelPriceService {
         brand: 'INGO',
         address: 'Sæbygårdvej',
         city: 'Sæby',
-        distanceKm: 0,
         latitude: 57.3303,
         longitude: 10.5238,
+        distanceKm: 0,
         petrol95: 14.61,
         diesel: 13.99,
         petrol100: 15.41,
-        updatedAt: now.subtract(const Duration(minutes: 25)),
+        updatedAt: now,
       ),
       FuelStation(
         id: 'circle-k-frederikshavn',
@@ -87,17 +87,29 @@ class FuelPriceService {
         brand: 'Circle K',
         address: 'Knivholtvej',
         city: 'Frederikshavn',
-        distanceKm: 0,
         latitude: 57.4405,
         longitude: 10.5368,
+        distanceKm: 0,
         petrol95: 14.89,
         diesel: 14.19,
         petrol100: 15.69,
-        updatedAt: now.subtract(const Duration(minutes: 40)),
+        updatedAt: now,
       ),
     ];
 
-    stations.sort((a, b) => a.priceFor(type).compareTo(b.priceFor(type)));
-    return stations;
+    return stations
+        .map(
+          (station) => station.copyWith(
+        distanceKm: Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          station.latitude,
+          station.longitude,
+        ) /
+            1000,
+      ),
+    )
+        .toList()
+      ..sort((a, b) => a.distanceKm.compareTo(b.distanceKm));
   }
 }

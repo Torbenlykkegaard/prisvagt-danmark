@@ -222,7 +222,10 @@ class _MainNavigationState extends State<MainNavigation> {
     final screens = [
       HomeScreen(watches: widget.watches, favoriteStores: widget.favoriteStores),
       WatchlistScreen(watches: widget.watches, onSaveWatch: widget.onSaveWatch, onDeleteWatch: widget.onDeleteWatch),
-      OffersScreen(favoriteStores: widget.favoriteStores),
+      OffersScreen(
+        favoriteStores: widget.favoriteStores,
+        onAddShoppingItem: widget.onSaveShoppingItem,
+      ),
       const FuelScreen(),
       ShoppingListScreen(items: widget.shoppingItems, onSaveItem: widget.onSaveShoppingItem, onDeleteItem: widget.onDeleteShoppingItem, onClearChecked: widget.onClearCheckedShoppingItems),
       BudgetScreen(budgets: widget.budgets, shoppingItems: widget.shoppingItems, watches: widget.watches, onSaveBudget: widget.onSaveBudget, onDeleteBudget: widget.onDeleteBudget),

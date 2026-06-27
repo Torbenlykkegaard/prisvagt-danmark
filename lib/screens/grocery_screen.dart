@@ -1,49 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../models/grocery_offer.dart';
-import '../models/shopping_item.dart';
 import '../services/grocery_price_service.dart';
 
-enum OfferSortMode {
-  cheapest,
-  biggestSaving,
-  store,
-}
-
-extension OfferSortModeLabel on OfferSortMode {
-  String get label {
-    switch (this) {
-      case OfferSortMode.cheapest:
-        return 'Billigst';
-      case OfferSortMode.biggestSaving:
-        return 'Størst besparelse';
-      case OfferSortMode.store:
-        return 'Butik';
-    }
-  }
-}
-
-class OffersScreen extends StatefulWidget {
-  final Set<String> favoriteStores;
-  final Future<void> Function(ShoppingItem item) onAddShoppingItem;
-
-  const OffersScreen({
-    super.key,
-    required this.favoriteStores,
-    required this.onAddShoppingItem,
-  });
+class GroceryScreen extends StatefulWidget {
+  const GroceryScreen({super.key});
 
   @override
-  State<OffersScreen> createState() => _OffersScreenState();
+  State<GroceryScreen> createState() => _GroceryScreenState();
 }
 
-class _OffersScreenState extends State<OffersScreen> {
+class _GroceryScreenState extends State<GroceryScreen> {
   bool loading = true;
   String? error;
   String query = '';
   String selectedCategory = 'Alle';
-  bool favoriteStoresFirst = true;
-  OfferSortMode sortMode = OfferSortMode.cheapest;
 
   List<GroceryOffer> offers = [];
 
@@ -54,6 +25,7 @@ class _OffersScreenState extends State<OffersScreen> {
     'Kød',
     'Brød',
     'Frugt & grønt',
+    'Æg',
     'Andet',
   ];
 
@@ -72,7 +44,7 @@ class _OffersScreenState extends State<OffersScreen> {
     try {
       final result = await GroceryPriceService.fetchLiveOffers(
         query: query,
-        limit: 120,
+        limit: 100,
       );
 
       setState(() {
@@ -81,67 +53,20 @@ class _OffersScreenState extends State<OffersScreen> {
       });
     } catch (e) {
       setState(() {
-        error = 'Live tilbud kunne ikke hentes lige nu. Prøv igen senere.';
+        error = 'Kunne ikke hente live madvaretilbud: $e';
         offers = [];
         loading = false;
       });
     }
   }
 
-  List<GroceryOffer> _filteredOffers() {
-    final list = offers.where((offer) {
-      final matchesCategory =
-          selectedCategory == 'Alle' || offer.category == selectedCategory;
-
-      return matchesCategory;
-    }).toList();
-
-    list.sort((a, b) {
-      if (favoriteStoresFirst) {
-        final aFav = widget.favoriteStores.contains(a.store);
-        final bFav = widget.favoriteStores.contains(b.store);
-
-        if (aFav != bFav) {
-          return aFav ? -1 : 1;
-        }
-      }
-
-      switch (sortMode) {
-        case OfferSortMode.cheapest:
-          return a.price.compareTo(b.price);
-        case OfferSortMode.biggestSaving:
-          return b.saving.compareTo(a.saving);
-        case OfferSortMode.store:
-          return a.store.compareTo(b.store);
-      }
-    });
-
-    return list;
-  }
-
-  Future<void> _addToShoppingList(GroceryOffer offer) async {
-    await widget.onAddShoppingItem(
-      ShoppingItem(
-        id: DateTime.now().microsecondsSinceEpoch.toString(),
-        name: offer.title,
-        store: offer.store,
-        category: offer.category,
-        estimatedPrice: offer.price,
-      ),
-    );
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${offer.title} blev tilføjet til indkøbslisten'),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
-    final visibleOffers = _filteredOffers();
+    final visibleOffers = offers.where((offer) {
+      if (selectedCategory == 'Alle') return true;
+      return offer.category == selectedCategory;
+    }).toList();
+
     final cheapest = visibleOffers.isEmpty ? null : visibleOffers.first;
 
     return SafeArea(
@@ -154,7 +79,7 @@ class _OffersScreenState extends State<OffersScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Live tilbud',
+                    'Madvarer',
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),
@@ -168,9 +93,7 @@ class _OffersScreenState extends State<OffersScreen> {
               ],
             ),
             const SizedBox(height: 8),
-            const Text(
-              'Live tilbud fra eTilbudsavis/Tjek. Priser bør altid kontrolleres i butikken.',
-            ),
+            const Text('Live tilbud fra eTilbudsavis/Tjek. Priser kan ændre sig og bør kontrolleres i butikken.'),
             const SizedBox(height: 12),
 
             TextField(
@@ -179,7 +102,9 @@ class _OffersScreenState extends State<OffersScreen> {
                 labelText: 'Søg efter mælk, kaffe, smør, kød...',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (value) => query = value,
+              onChanged: (value) {
+                query = value;
+              },
               onSubmitted: (_) => _loadOffers(),
             ),
 
@@ -207,45 +132,6 @@ class _OffersScreenState extends State<OffersScreen> {
 
             const SizedBox(height: 12),
 
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  children: [
-                    DropdownButtonFormField<OfferSortMode>(
-                      value: sortMode,
-                      decoration: const InputDecoration(
-                        labelText: 'Sortering',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: OfferSortMode.values
-                          .map(
-                            (mode) => DropdownMenuItem(
-                          value: mode,
-                          child: Text(mode.label),
-                        ),
-                      )
-                          .toList(),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => sortMode = value);
-                      },
-                    ),
-                    SwitchListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('Vis favoritbutikker først'),
-                      value: favoriteStoresFirst,
-                      onChanged: (value) {
-                        setState(() => favoriteStoresFirst = value);
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
             if (error != null)
               Card(
                 color: Theme.of(context).colorScheme.errorContainer,
@@ -264,9 +150,7 @@ class _OffersScreenState extends State<OffersScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        sortMode == OfferSortMode.biggestSaving
-                            ? 'Største besparelse'
-                            : 'Bedste tilbud i listen',
+                        'Billigste i listen',
                         style: Theme.of(context).textTheme.titleMedium,
                       ),
                       const SizedBox(height: 6),
@@ -276,14 +160,7 @@ class _OffersScreenState extends State<OffersScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      Text(
-                        '${cheapest.store} · ${cheapest.price.toStringAsFixed(2)} kr.',
-                      ),
-                      if (cheapest.saving > 0)
-                        Text(
-                          'Du sparer ${cheapest.saving.toStringAsFixed(2)} kr.',
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
+                      Text('${cheapest.store} · ${cheapest.price.toStringAsFixed(2)} kr.'),
                     ],
                   ),
                 ),
@@ -302,16 +179,12 @@ class _OffersScreenState extends State<OffersScreen> {
               const Card(
                 child: Padding(
                   padding: EdgeInsets.all(16),
-                  child: Text('Ingen tilbud fundet. Prøv en anden søgning.'),
+                  child: Text('Ingen madvaretilbud fundet. Prøv en anden søgning eller kategori.'),
                 ),
               )
             else
               ...visibleOffers.map(
-                    (offer) => _GroceryOfferCard(
-                  offer: offer,
-                  isFavoriteStore: widget.favoriteStores.contains(offer.store),
-                  onAddToShoppingList: () => _addToShoppingList(offer),
-                ),
+                    (offer) => _GroceryOfferCard(offer: offer),
               ),
           ],
         ),
@@ -322,14 +195,8 @@ class _OffersScreenState extends State<OffersScreen> {
 
 class _GroceryOfferCard extends StatelessWidget {
   final GroceryOffer offer;
-  final bool isFavoriteStore;
-  final VoidCallback onAddToShoppingList;
 
-  const _GroceryOfferCard({
-    required this.offer,
-    required this.isFavoriteStore,
-    required this.onAddToShoppingList,
-  });
+  const _GroceryOfferCard({required this.offer});
 
   @override
   Widget build(BuildContext context) {
@@ -345,8 +212,8 @@ class _GroceryOfferCard extends StatelessWidget {
               child: hasImage
                   ? Image.network(
                 offer.imageUrl,
-                width: 82,
-                height: 82,
+                width: 72,
+                height: 72,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) => _placeholder(),
               )
@@ -358,19 +225,6 @@ class _GroceryOfferCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (isFavoriteStore)
-                    Container(
-                      margin: const EdgeInsets.only(bottom: 4),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                      ),
-                      child: const Text(
-                        'Favoritbutik',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-                      ),
-                    ),
                   Text(
                     offer.title,
                     maxLines: 2,
@@ -390,11 +244,12 @@ class _GroceryOfferCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: 6),
-                  FilledButton.tonalIcon(
-                    onPressed: onAddToShoppingList,
-                    icon: const Icon(Icons.add_shopping_cart),
-                    label: const Text('Tilføj'),
+                  const SizedBox(height: 4),
+                  Text(
+                    offer.category,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -421,15 +276,8 @@ class _GroceryOfferCard extends StatelessWidget {
                 if (offer.saving > 0)
                   Text(
                     'spar ${offer.saving.toStringAsFixed(2)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall,
                   ),
-                const SizedBox(height: 6),
-                Text(
-                  offer.category,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
               ],
             ),
           ],
@@ -440,8 +288,8 @@ class _GroceryOfferCard extends StatelessWidget {
 
   Widget _placeholder() {
     return Container(
-      width: 82,
-      height: 82,
+      width: 72,
+      height: 72,
       color: Colors.black12,
       child: const Icon(Icons.local_grocery_store_outlined),
     );
